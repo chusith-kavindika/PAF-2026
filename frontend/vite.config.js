@@ -12,4 +12,5 @@ export default defineConfig({
 
 //UI design (login page)
 //Database schema created
+//Student model implementation
 
