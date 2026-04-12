@@ -14,3 +14,5 @@ export default defineConfig({
 //Database schema created
 //Student model implementation
 //Login functionality added
+//Form validation implemented
+
