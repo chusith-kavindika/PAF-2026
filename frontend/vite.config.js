@@ -17,3 +17,5 @@ export default defineConfig({
 //Form validation implemented
 //Dashboard UI created
 //Navigation bar added
+//Course module started
+
