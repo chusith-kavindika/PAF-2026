@@ -18,4 +18,5 @@ export default defineConfig({
 //Dashboard UI created
 //Navigation bar added
 //Course module started
+//Course enrollment feature
 
