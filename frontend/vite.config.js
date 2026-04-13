@@ -16,4 +16,4 @@ export default defineConfig({
 //Login functionality added
 //Form validation implemented
 //Dashboard UI created
-
+//Navigation bar added
