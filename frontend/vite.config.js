@@ -19,4 +19,4 @@ export default defineConfig({
 //Navigation bar added
 //Course module started
 //Course enrollment feature
-
+//Admin panel UI
