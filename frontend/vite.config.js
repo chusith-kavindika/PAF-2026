@@ -27,4 +27,4 @@ export default defineConfig({
 //Role-based access control
 //Logout functionality
 //UI improvements
-
+//Responsive design fixes
