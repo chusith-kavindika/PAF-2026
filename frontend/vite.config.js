@@ -23,3 +23,5 @@ export default defineConfig({
 //CRUD operations for courses
 //Backend API integration
 //Search functionality added
+//Bug fixes (login issues)
+
