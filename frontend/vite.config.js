@@ -24,4 +24,4 @@ export default defineConfig({
 //Backend API integration
 //Search functionality added
 //Bug fixes (login issues)
-
+//Role-based access control
