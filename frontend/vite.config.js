@@ -22,3 +22,4 @@ export default defineConfig({
 //Admin panel UI
 //CRUD operations for courses
 //Backend API integration
+//Search functionality added
