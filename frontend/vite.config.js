@@ -25,3 +25,4 @@ export default defineConfig({
 //Search functionality added
 //Bug fixes (login issues)
 //Role-based access control
+//Logout functionality
