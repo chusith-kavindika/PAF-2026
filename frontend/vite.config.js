@@ -20,4 +20,5 @@ export default defineConfig({
 //Course module started
 //Course enrollment feature
 //Admin panel UI
+//CRUD operations for courses
 
