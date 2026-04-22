@@ -14,3 +14,4 @@ export default defineConfig({
 //Add comments to code
 //Unit testing basics
 //Fix minor UI bugs
+//Update documentation
