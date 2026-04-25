@@ -9,10 +9,4 @@ export default defineConfig({
     tailwindcss(),
   ],
 })
-//git push origin IT22581648 --force
-//dj
-//fkgh
-//sdfgdfd
-//were
-
 
