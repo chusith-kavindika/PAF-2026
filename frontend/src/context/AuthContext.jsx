@@ -1,0 +1,209 @@
+import { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
+
+const AuthContext = createContext(null);
+
+const API_BASE = 'http://localhost:8081';
+const AUTH_MODE_KEY = 'smartcampus_auth_mode';
+
+function getAuthMode() {
+  return localStorage.getItem(AUTH_MODE_KEY) || '';
+}
+
+// Axios with credentials (session cookies)
+const api = axios.create({
+  baseURL: API_BASE,
+  withCredentials: true,
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// ── Interceptor for Unauthorized access ──
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const token = localStorage.getItem('token');
+      const authMode = getAuthMode();
+      // Only force logout for authenticated backend sessions.
+      if (token || authMode === 'backend') {
+        localStorage.removeItem('token');
+        localStorage.removeItem(AUTH_MODE_KEY);
+        localStorage.removeItem('smartcampus_user');
+        window.dispatchEvent(new Event('auth-logout'));
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// ── Mock Staff Credentials (Admin & Technician bypass) ────────────────────
+// These work even when the backend is not set up for these roles.
+// Passwords are stored in localStorage so users can change them.
+const DEFAULT_STAFF_CREDENTIALS = {
+  'admin@sliit.lk':        { id: 'u5', name: 'Admin User', role: 'ADMIN',      defaultPassword: 'admin@123' },
+  'superadmin@sliit.lk':   { id: 'u6', name: 'Super Admin', role: 'ADMIN',     defaultPassword: 'admin@123' },
+  'sunil@sliit.lk':        { id: 'tech1', name: 'Sunil Rathnayake', role: 'TECHNICIAN', defaultPassword: 'tech@123' },
+  'pradeep@sliit.lk':      { id: 'tech2', name: 'Pradeep Jayasinghe', role: 'TECHNICIAN', defaultPassword: 'tech@123' },
+};
+
+function getStaffPasswords() {
+  try { return JSON.parse(localStorage.getItem('staff_passwords') || '{}'); } catch { return {}; }
+}
+
+function checkStaffCredential(email, password) {
+  const template = DEFAULT_STAFF_CREDENTIALS[email.toLowerCase()];
+  if (!template) return null;
+  const overrides = getStaffPasswords();
+  const expected  = overrides[email.toLowerCase()] ?? template.defaultPassword;
+  if (password !== expected) return null;
+  return { ...template, email: email.toLowerCase(), picture: null };
+}
+
+export function AuthProvider({ children }) {
+  // Initialize user from localStorage synchronously to prevent flash
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('smartcampus_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Attempt to restore session on mount
+  useEffect(() => {
+    const handleLogout = () => setUser(null);
+    window.addEventListener('auth-logout', handleLogout);
+    
+    fetchUser();
+    
+    return () => window.removeEventListener('auth-logout', handleLogout);
+  }, []);
+
+  const fetchUser = async () => {
+    const token = localStorage.getItem('token');
+    const stored = localStorage.getItem('smartcampus_user');
+    const authMode = getAuthMode();
+    // Local/mock sessions do not have backend token; avoid /me 401 noise.
+    if (!token && stored && authMode === 'local') {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data } = await api.get('/api/user/me');
+      setUser(data);
+      localStorage.setItem('smartcampus_user', JSON.stringify(data));
+    } catch {
+      // Keep localStorage data if API fails (e.g., manual login)
+      const latestStored = localStorage.getItem('smartcampus_user');
+      if (!latestStored) setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = () => {
+    window.location.href = `${API_BASE}/oauth2/authorization/google`;
+  };
+
+  const loginManual = async (email, password) => {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+
+    try {
+      const { data } = await api.post('/api/auth/login', { email: normalizedEmail, password });
+      const authenticatedUser = {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        picture: data.picture,
+        role: data.role,
+      };
+
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      } else {
+        localStorage.removeItem('token');
+      }
+      localStorage.setItem(AUTH_MODE_KEY, 'backend');
+
+      setUser(authenticatedUser);
+      localStorage.setItem('smartcampus_user', JSON.stringify(authenticatedUser));
+      return authenticatedUser;
+    } catch (error) {
+      // Fallback for local mock staff accounts when backend auth is unavailable/unauthorized.
+      const fallbackStaff = checkStaffCredential(normalizedEmail, password);
+      if (fallbackStaff) {
+        localStorage.removeItem('token');
+        localStorage.setItem(AUTH_MODE_KEY, 'local');
+        setUser(fallbackStaff);
+        localStorage.setItem('smartcampus_user', JSON.stringify(fallbackStaff));
+        return fallbackStaff;
+      }
+      throw error;
+    }
+  };
+
+  const register = async (name, itNumber, faculty, email, password) => {
+    const { data } = await api.post('/api/auth/register', { name, itNumber, faculty, email, password });
+    return data;
+  };
+
+  // ── Change Password ───────────────────────────────────────────────────────
+  const changePassword = async (currentPassword, newPassword) => {
+    const stored = localStorage.getItem('smartcampus_user');
+    if (!stored) throw new Error('Not logged in');
+    const currentUser = JSON.parse(stored);
+
+    // If this is a staff (mock) account, update password locally
+    const isStaff = !!DEFAULT_STAFF_CREDENTIALS[currentUser.email?.toLowerCase()];
+    if (isStaff) {
+      // Verify current password first
+      const valid = checkStaffCredential(currentUser.email, currentPassword);
+      if (!valid) throw new Error('Current password is incorrect');
+      const overrides = getStaffPasswords();
+      overrides[currentUser.email.toLowerCase()] = newPassword;
+      localStorage.setItem('staff_passwords', JSON.stringify(overrides));
+      return { success: true };
+    }
+
+    // For real users, call backend
+    const { data } = await api.post('/api/auth/change-password', { currentPassword, newPassword });
+    return data;
+  };
+
+  const logout = async () => {
+    try {
+      await api.post('/api/auth/logout');
+    } finally {
+      setUser(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem(AUTH_MODE_KEY);
+      localStorage.removeItem('smartcampus_user');
+      window.location.href = '/';
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user, loading,
+      loginWithGoogle, loginManual, register,
+      logout, fetchUser, changePassword,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const useAuth = () => useContext(AuthContext);
+export { api };
