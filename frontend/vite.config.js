@@ -11,14 +11,6 @@ export default defineConfig({
 })
 //git push origin IT22581648 --force
 //ghfjgh
-//iou
-//ertrt
-//ewrtert
-//bfgjh
-//hfjg
-//grt
-//wer
-//tyuiy
-//gfhjgh
+//fgh
 
 
